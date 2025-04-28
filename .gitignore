@@ -2,3 +2,4 @@ venv/
 .vscode/
 build/
 dist/
+src/py/__pycache__/
