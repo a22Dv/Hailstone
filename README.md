@@ -1,8 +1,10 @@
-# HailStone
-![HailStone](./hailstone_banner.png)
+# Hailstone
+![HailStone](./docs/images/hailstone_banner.png)
 
-![PyPI - Python Version](https://img.shields.io/pypi/pyversions/numpy)
-![C++](https://img.shields.io/badge/C++-00599C?style=flat-square&logo=C%2B%2B&logoColor=white)
-[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](https://opensource.org/licenses/MIT)
+![Python >3.10](https://img.shields.io/badge/Python-%3E3.10-blue?logo=python&logoColor=white)
+![C++ >17](https://img.shields.io/badge/C%2B%2B-%3E17-00599C?logo=cplusplus&logoColor=white)
+![MIT License](https://img.shields.io/badge/license-MIT-green)
 
-A visualization of the Collatz Conjecture also known as the "Hailstone Sequence" using Python and C++.
+A visualization of the Collatz Conjecture also known as a "Hailstone Sequence" using Python and C++.
+
+## Installation
