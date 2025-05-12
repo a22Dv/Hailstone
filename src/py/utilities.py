@@ -1,6 +1,5 @@
 from pathlib import Path
 
 class Utilities:
-    @classmethod
-    def set_config(path: Path) -> bool:
+    def set_config(self, path: Path) -> bool:
         pass

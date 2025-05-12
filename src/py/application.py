@@ -1,20 +1,29 @@
 from display import Display
 from utilities import Utilities
 from pathlib import Path
-import os
+
 class Application:
-    def __init__(self, display: Display, utilities: Utilities) -> None:
+    def __init__(
+        self,
+        display: Display,
+        utilities: Utilities,
+        execution_path: Path,
+        config_path: Path,
+        images_path: Path,
+        subproc_path: Path,
+    ) -> None:
         self.display: Display = display
         self.utilities: Utilities = utilities
-        self.execution_path: Path = Path(os.path.abspath(os.path.dirname(__file__)))
-
-        
-        self.config_path: Path = Path(self.execution_path.parent.parent / "build" / "config.yaml")
-        self.images_path: Path = Path(self.execution_path.parent.parent / "images")
-        self.subproc_path: Path = Path(self.execution_path / "collatz_subproc.exe")
-
-
-
+        self.execution_path: Path = execution_path
+        self.config_path: Path = config_path
+        self.images_path: Path = images_path
+        self.subproc_path: Path = subproc_path
+        self.running: bool = True
 
     def start(self) -> None:
+        while self.running:
+            pass
+
+    def quit(self) -> None:
         pass
+    
