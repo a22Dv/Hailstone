@@ -1,4 +1,1 @@
-- Figure out how to avoid deadlocks during stderr -> stdout [data] sequences.
-- Find a way to read the binary data sent to stdout
-- Establish a binary protocol for stdout for both Python and C++
-- Process stderr output to terminal for logs and progress reports.
+- Create a common interface for both processes to communicate. A dedicated IO class in both Python and C++.

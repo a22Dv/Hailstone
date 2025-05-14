@@ -1,9 +1,11 @@
 from display import Display
 from utilities import Utilities
+from ipc import IPC
 from pathlib import Path
 from typing import Dict, Tuple
 import numpy as np
 import subprocess
+from PIL import Image, ImageDraw
 
 
 class Application:
@@ -16,28 +18,40 @@ class Application:
         images_path: Path,
         subproc_path: Path,
     ) -> None:
-        self.display: Display = display
-        self.utilities: Utilities = utilities
         self.execution_path: Path = execution_path
         self.config_path: Path = config_path
         self.images_path: Path = images_path
         self.subproc_path: Path = subproc_path
         self.running: bool = True
-        self.subprocess: subprocess.Popen = self.utilities.get_subprocess(subproc_path)
         self.config: Dict = {}
-        self.PROC_FINISHED: str = "/1"
-        self.SEND_DATA: str = "/2"
+        self.display: Display = display
+        self.utilities: Utilities = utilities
+        self.subprocess: subprocess.Popen = self.utilities.get_subprocess(subproc_path)
+        self.ipc: IPC = IPC(self.subprocess, False)
 
     def start(self) -> None:
         self.config = self.utilities.set_config(self.config_path)
         while self.running:
             range: Tuple[int, int] = self.utilities.get_range()
-            image_data: np.ndarray = self.get_image_data(range)
-            print(image_data)
             if range == (-1, -1):
                 self.quit()
+            image_data: np.ndarray = self.get_image_data(range)
+            image: Image = self.get_image(image_data)
+            self.show_and_save(image)
 
+    # TODO: Add progress display support.
     def get_image_data(self, range: Tuple[int, int]) -> np.ndarray:
+        self.ipc.send(f"{range[0]} {range[1]}")
+        while True:
+            log_data: str = self.ipc.receive(False, True)
+            if log_data == self.ipc.codes["processing_finished"]:
+                break
+        self.ipc.send(self.ipc.codes["send_data"])
+        image_data: bytes = self.ipc.receive(True, False)
+        return self.parse_bytes(image_data)
+
+     # TODO: Add progress display support.
+    def parse_bytes(self, image_data: bytes) -> np.ndarray:
         data_dtype: np.dtype = np.dtype(
             [
                 ("x1", np.float32),
@@ -50,23 +64,16 @@ class Application:
                 ("a", np.uint8),
             ]
         )
-        self.subprocess.stdin.write(f"{range[0]} {range[1]}\n".encode("ascii"))
-        self.subprocess.stdin.flush()
-        while True:
-            log_data: bytes = self.subprocess.stderr.readline()
-            log_message: str = log_data.decode("ascii").removesuffix("\n")
-            if log_message != self.PROC_FINISHED:
-                print(log_message)
-            else:
-                break
-        self.subprocess.stdin.write(f"{self.SEND_DATA}\n".encode("ascii"))
-        self.subprocess.stdin.flush()
-        image_data: bytes = self.subprocess.stdout.readline()
-        return image_data
 
-    def parse_bytes(self, image_data: bytes) -> np.ndarray:
+     # TODO: Add progress display support.
+    def get_image(self, image_data: np.ndarray) -> Image:
+        pass
+
+    def show_and_save(self, image: Image) -> None:
         pass
 
     def quit(self) -> None:
-        self.subprocess.terminate()
+        self.ipc.send(self.ipc.codes["terminate"])
+        if self.subprocess.returncode != 0:
+            raise ChildProcessError("Failure to terminate gracefully.")
         self.running = False

@@ -1,6 +1,7 @@
 from application import Application
 from display import Display
 from utilities import Utilities
+from ipc import IPC
 from pathlib import Path
 import os
 
@@ -9,11 +10,13 @@ if __name__ == "__main__":
     display: Display = Display()
     utilities: Utilities = Utilities()
 
-    # TODO: DEVELOPMENT PATHS - MUST CHANGE TO DIRECT PATHS WHEN FINISHED 
+    # TODO: DEVELOPMENT PATHS - MUST CHANGE TO DIRECT PATHS WHEN FINISHED
     execution_path: Path = Path(os.path.abspath(os.path.dirname(__file__)))
     config_path: Path = Path(execution_path.parent.parent / "build" / "config.yaml")
     images_path: Path = Path(execution_path.parent.parent / "images")
-    subproc_path: Path = Path(execution_path.parent.parent / "build", "collatz_subprocess.exe")
+    subproc_path: Path = Path(
+        execution_path.parent.parent / "build", "collatz_subprocess.exe"
+    )
     try:
         if not config_path.exists():
             utilities.set_config(config_path)
@@ -24,5 +27,6 @@ if __name__ == "__main__":
     except Exception as e:
         print(f"{e.args}\nA fatal error has occurred in setup. Aborting operation.")
         exit(-1)
-    Application(display, utilities, execution_path, config_path, images_path, subproc_path).start()
-    
+    Application(
+        display, utilities, execution_path, config_path, images_path, subproc_path
+    ).start()

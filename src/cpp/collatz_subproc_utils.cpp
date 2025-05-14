@@ -108,3 +108,12 @@ fs::path Utilities::getExecutablePath() {
     strPath.assign(buffer.data(), len);
     return fs::path(strPath);
 }
+
+Range Utilities::getRange(const std::string &rangeStr) {
+    std::vector<std::string> rangeStrVal = Utilities::split(rangeStr, " ");
+    if (rangeStrVal.size() != 2) {
+        throw std::invalid_argument("Invalid range format received.");
+    }
+    Range range = {std::stoul(rangeStrVal[0]), std::stoul(rangeStrVal[1])};
+    return range;
+}

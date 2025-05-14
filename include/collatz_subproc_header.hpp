@@ -29,8 +29,6 @@ using ImageDimensions = std::pair<uint32_t, uint32_t>;
 using Range = std::pair<uint32_t, uint32_t>;
 using F32 = float;
 
-
-
 class Utilities {
 public:
     static std::vector<std::string> split(const std::string &str, const std::string &delimiter);
@@ -42,28 +40,42 @@ public:
     F32 getFloatValue(const std::string &strFloat);  
     std::unordered_map<std::string, std::string> getConfig(const fs::path &configPath);
     fs::path getExecutablePath();
+    Range getRange(const std::string &rangeStr);
+    std::string assembleValues(
+        const std::unordered_map<std::string, std::vector<float>> &coordinates,
+        const std::unordered_map<std::string, std::vector<uint8_t>> &style
+    );
 };
 
-class IO {
+class IPC {
+private:
+    bool text = false;
 public:
-    Range getRange();
+    IPC(bool text);
+    const std::unordered_map<std::string, std::string> codes = {
+        {"send", "\n"},
+        {"processingFinished", "/1"},
+        {"sendData", "/2"},
+        {"terminate", "/-1"},
+        {"failureToReceive", "/-2"},
+    };
+    void send(const std::string &message, bool stdOut = true);
+    std::string receive();
 };
-
 
 class Subprocess {
 private:
     std::unique_ptr<Utilities> utilities = nullptr;
-    std::unique_ptr<IO> io = nullptr;
+    std::unique_ptr<IPC> ipc = nullptr;
     std::unordered_map<std::string, std::string> config;
-    const std::string processFinished = "/1";
-    const std::string sendData = "/2";
-    
 public:
-    Subprocess(std::unique_ptr<Utilities> utilities, std::unique_ptr<IO> io);
+    Subprocess(std::unique_ptr<Utilities> utilities, std::unique_ptr<IPC> ipc);
     void start();
     std::vector<uint32_t> getValues(const Range &range);
-    std::vector<std::vector<uint32_t>> getSequences(const std::vector<uint32_t> &values);
-    std::vector<uint32_t> getSequence(uint32_t n);
+    std::vector<std::vector<uint64_t>> getSequences(const std::vector<uint32_t> &values);
+    std::vector<uint64_t> getSequence(uint32_t n);
+    std::unordered_map<std::string, std::vector<float>> getCoordinates(const std::vector<std::vector<uint64_t>> &sequences);
+    std::unordered_map<std::string, std::vector<uint8_t>> getStyles(const std::vector<std::vector<uint64_t>> &sequences);
     void quit();
 };
 #endif
