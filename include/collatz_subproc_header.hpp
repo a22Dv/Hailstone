@@ -12,6 +12,7 @@
 #include <stdexcept>
 #include <cctype>
 #include <fstream>
+#include <cstring>
 
 #ifdef _WIN32
 #include <windows.h>

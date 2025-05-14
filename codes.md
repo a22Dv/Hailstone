@@ -18,7 +18,7 @@
      - b - 1 byte
      - a - 1 byte
      - t *(Line thickness)* - 1 byte 
-    - Total: 25 bytes/segment
+    - Total: 21 bytes/segment
 
 
 

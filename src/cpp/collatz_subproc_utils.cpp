@@ -117,3 +117,39 @@ Range Utilities::getRange(const std::string &rangeStr) {
     Range range = {std::stoul(rangeStrVal[0]), std::stoul(rangeStrVal[1])};
     return range;
 }
+
+std::string Utilities::assembleValues(
+    const std::unordered_map<std::string, std::vector<float>> &coordinates,
+    const std::unordered_map<std::string, std::vector<uint8_t>> &style
+ ) {
+    static const std::vector<std::string> parameters = {"x1", "x2", "y1", "y2", "r", "g", "b", "a", "t"};
+    static const size_t parameterCount = parameters.size();
+    static const size_t segmentByteCount = (sizeof(float) * 4) + (sizeof(uint8_t) * 5);
+    const size_t segmentCount = style.at("t").size();
+    std::string assembledBuffer(segmentByteCount * segmentCount, '\0');
+    char* bufferPtr = assembledBuffer.data();
+    size_t byteIndex = 0;
+    std::vector<std::vector<float>&> coordinateVector(4);
+    std::vector<std::vector<uint8_t>&> styleVector(5);
+    for (size_t i = 0; i < 4; ++i) {
+        coordinateVector[i] = coordinates.at(parameters[i]);
+    }
+    for (size_t i = 4; i < 9; ++i) {
+        styleVector[i - 4] = style.at(parameters[i]);
+    }
+    for (size_t i = 0; i < segmentCount; ++i) {
+        for (size_t j = 0; j < parameterCount; ++j) {
+            bool isCoordinate = j < 4;
+            const size_t sizeOfParameter = isCoordinate ? sizeof(float) : sizeof(uint8_t);
+            const char* byte = nullptr;
+            if (isCoordinate) {
+                byte = reinterpret_cast<const char*>(&coordinateVector[j][i]);
+            } else {
+                byte = reinterpret_cast<const char*>(&styleVector[j - 4][i]);
+            }
+            std::memcpy(bufferPtr + byteIndex, byte, sizeOfParameter);
+            byteIndex += sizeOfParameter;
+        }
+    }
+    return assembledBuffer;
+ }
