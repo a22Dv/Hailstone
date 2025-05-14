@@ -2,7 +2,7 @@
 
 IPC::IPC(bool text) : text(text) {};
 
-void IPC::send(const std::string &message, bool stdOut = true) {
+void IPC::send(const std::string &message, bool stdOut) {
     // std::string can act as byte containers hence only std::string is used.
     if (stdOut) {
         std::cout << message << codes.at("send");

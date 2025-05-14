@@ -1,5 +1,7 @@
 #include "collatz_subproc_header.hpp"
 
+Utilities::Utilities() {};
+
 RGBA Utilities::getRGBA(const std::string &rgbaHex) {
     if (!(rgbaHex.length() == 9 && rgbaHex[0] == '#')) {
         throw std::invalid_argument("Invalid hex-code format for RGBA.");
@@ -53,9 +55,10 @@ std::unordered_map<std::string, std::string> Utilities::getConfig(const fs::path
         throw std::runtime_error("File cannot be opened.");
     }
     YAML::Node configFile = YAML::Load(yamlConfigFile);
-    std::array<std::string, 10> settings = {
-        "mode", "sampleSize", "scaling", "angleIfOdd", "angleIfEven", 
-        "colorScheme", "backgroundColor", "gradient", "colorBasedOn", "imageSize"
+    std::array<std::string, 14> settings = {
+        "mode", "sample-size", "scaling", "angle-if-odd", "angle-if-even", 
+        "color-scheme", "background-color", "gradient", "color-based-on", "image-size",
+        "line-width", "max-line-width", "line-length", "width-based-on"
     };
     std::unordered_map<std::string, std::string> config = {};
     for (std::string setting : settings) {
@@ -114,38 +117,43 @@ Range Utilities::getRange(const std::string &rangeStr) {
     if (rangeStrVal.size() != 2) {
         throw std::invalid_argument("Invalid range format received.");
     }
-    Range range = {std::stoul(rangeStrVal[0]), std::stoul(rangeStrVal[1])};
-    return range;
+    Range range = {std::stoul(rangeStrVal[0]), std::stoul(rangeStrVal[1])};\
+    if (range.first >= 1 && range.second >= 1) {
+        return range;
+    } else {
+        throw std::invalid_argument("Invalid range format received.");
+    }
+    
 }
 
 std::string Utilities::assembleValues(
     const std::unordered_map<std::string, std::vector<float>> &coordinates,
     const std::unordered_map<std::string, std::vector<uint8_t>> &style
  ) {
-    static const std::vector<std::string> parameters = {"x1", "x2", "y1", "y2", "r", "g", "b", "a", "t"};
+    static const std::vector<std::string> parameters = {"x1", "x2", "x3", "x4", "y1", "y2", "y3", "y4", "r", "g", "b", "a"};
     static const size_t parameterCount = parameters.size();
-    static const size_t segmentByteCount = (sizeof(float) * 4) + (sizeof(uint8_t) * 5);
-    const size_t segmentCount = style.at("t").size();
+    static const size_t segmentByteCount = (sizeof(float) * 8) + (sizeof(uint8_t) * 4);
+    const size_t segmentCount = style.at("a").size();
     std::string assembledBuffer(segmentByteCount * segmentCount, '\0');
     char* bufferPtr = assembledBuffer.data();
     size_t byteIndex = 0;
-    std::vector<std::vector<float>&> coordinateVector(4);
-    std::vector<std::vector<uint8_t>&> styleVector(5);
-    for (size_t i = 0; i < 4; ++i) {
-        coordinateVector[i] = coordinates.at(parameters[i]);
+    std::vector<const std::vector<float>*> coordinateVector(8);
+    std::vector<const std::vector<uint8_t>*> styleVector(5);
+    for (size_t i = 0; i < 8; ++i) {
+        coordinateVector[i] = &coordinates.at(parameters[i]);
     }
-    for (size_t i = 4; i < 9; ++i) {
-        styleVector[i - 4] = style.at(parameters[i]);
+    for (size_t i = 8; i < 12; ++i) {
+        styleVector[i - 8] = &style.at(parameters[i]);
     }
     for (size_t i = 0; i < segmentCount; ++i) {
         for (size_t j = 0; j < parameterCount; ++j) {
-            bool isCoordinate = j < 4;
+            bool isCoordinate = j < 8;
             const size_t sizeOfParameter = isCoordinate ? sizeof(float) : sizeof(uint8_t);
             const char* byte = nullptr;
             if (isCoordinate) {
-                byte = reinterpret_cast<const char*>(&coordinateVector[j][i]);
+                byte = reinterpret_cast<const char*>(&(*coordinateVector[j])[i]);
             } else {
-                byte = reinterpret_cast<const char*>(&styleVector[j - 4][i]);
+                byte = reinterpret_cast<const char*>(&(*styleVector[j - 8])[i]);
             }
             std::memcpy(bufferPtr + byteIndex, byte, sizeOfParameter);
             byteIndex += sizeOfParameter;

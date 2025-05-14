@@ -13,6 +13,7 @@
 #include <cctype>
 #include <fstream>
 #include <cstring>
+#include <random>
 
 #ifdef _WIN32
 #include <windows.h>
@@ -32,6 +33,7 @@ using F32 = float;
 
 class Utilities {
 public:
+    Utilities();
     static std::vector<std::string> split(const std::string &str, const std::string &delimiter);
     static std::string strip(const std::string &str);
     RGBA getRGBA(const std::string &rgbaHex);
