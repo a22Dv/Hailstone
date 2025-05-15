@@ -16,6 +16,9 @@
 #include <random>
 #include <cmath>
 #include <numbers>
+#include <concepts>
+
+
 
 #ifdef _WIN32
 #include <windows.h>
@@ -28,9 +31,11 @@
 namespace fs = std::filesystem;
 
 using RGBA = std::array<uint8_t, 4>;
+using HSV = std::array<float, 3>;
 using Gradient = std::pair<RGBA, RGBA>;
 using ImageDimensions = std::pair<uint32_t, uint32_t>;
 using Range = std::pair<uint32_t, uint32_t>;
+
 using F32 = float;
 
 class Utilities {
@@ -39,6 +44,7 @@ public:
     static std::vector<std::string> split(const std::string &str, const std::string &delimiter);
     static std::string strip(const std::string &str);
     RGBA getRGBA(const std::string &rgbaHex);
+    HSV getHSV(const RGBA &rgba);
     Gradient getGradient(const std::string &gradientHexes);
     uint32_t getValue(const std::string &strValue);
     ImageDimensions getDimensions(const std::string &imageSize);

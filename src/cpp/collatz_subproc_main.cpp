@@ -30,8 +30,6 @@ void Subprocess::start() {
         const std::vector<std::vector<uint64_t>> sequences = getSequences(values);
         const std::unordered_map<std::string, std::vector<float>> coordinates = getCoordinates(sequences);
         const std::unordered_map<std::string, std::vector<uint8_t>> styles = getStyles(sequences);
-
-        // Order doesn't matter for these buffers, assembling chunks then extending to push the memory would be feasible.
         const std::string imageData = utilities->assembleValues(coordinates, styles);
     
         ipc->send(ipc->codes.at("processingFinished"), false);
@@ -93,10 +91,8 @@ std::vector<uint64_t> Subprocess::getSequence(uint32_t n) {
 
 std::unordered_map<std::string, std::vector<float>> Subprocess::getCoordinates(const std::vector<std::vector<uint64_t>> &sequences) {
     static const std::string scaling = config.at("scaling");
-    static const std::string widthBasedOn = config.at("width-based-on");
     static const uint8_t lineLength = static_cast<uint8_t>(utilities->getValue(config.at("line-length")));
     static const uint8_t lineWidth = static_cast<uint8_t>(utilities->getValue(config.at("line-width")));
-    static const uint8_t maxLineWidth = static_cast<uint8_t>(utilities->getValue(config.at("max-line-width")));
     static const ImageDimensions imageDimensions = utilities->getDimensions(config.at("image-size"));
     static const std::vector<std::string> parameters = {"x1", "x2", "x3", "x4", "y1", "y2", "y3", "y4"};
     static const size_t parameterCount = parameters.size();
@@ -118,10 +114,10 @@ std::unordered_map<std::string, std::vector<float>> Subprocess::getCoordinates(c
         coordinatePtrs[i] = &coordinates.at(parameters[i]);
     }
 
+    size_t sequenceStartIndex = 0;
     for (size_t i = 0; i < sequencesSize; ++i) {
         const std::vector<uint64_t>& sequence = sequences[i];
         const size_t sequenceSize = sequence.size();
-        const size_t sequenceStartIndex = sequenceSize * i;
 
         (*coordinatePtrs[0])[sequenceStartIndex] = 0.0;
         (*coordinatePtrs[4])[sequenceStartIndex] = 0.0;
@@ -143,15 +139,59 @@ std::unordered_map<std::string, std::vector<float>> Subprocess::getCoordinates(c
                 currentLineLength *= growth;
             }   
         }
+        sequenceStartIndex += sequenceSize - 1;
     }
     return coordinates;
 }
 
 std::unordered_map<std::string, std::vector<uint8_t>> Subprocess::getStyles(const std::vector<std::vector<uint64_t>> &sequences) {
-    std::unordered_map<std::string, std::vector<uint8_t>> x = {};
-    return x;
+    static const std::string colorScheme = config.at("color-scheme");
+    static const bool isFlat = colorScheme == "Flat";
+    static const RGBA backgroundColor = utilities->getRGBA(config.at("background-color"));
+    static const Gradient gradient = utilities->getGradient(config.at("gradient"));
+    static const std::string colorBasedOn = config.at("color-based-on");
+    static const bool isFrequencyBased = colorBasedOn == "Frequency-Based";
+    static const std::vector<std::string> components = {"r", "g", "b", "a"};
+    static const size_t componentCount = components.size();
+    std::unordered_map<std::string, std::vector<uint8_t>> colors = {};
+    std::vector<std::vector<uint8_t>*> colorPtrs = {};
+    size_t segmentCount = 0;
+    for (const std::vector<uint64_t> &sequence : sequences) {
+        segmentCount += sequence.size() - 1;
+    }
+    for (std::string comp : components) {
+        colors[comp] = std::vector<uint8_t>(segmentCount);
+        colorPtrs.push_back(&colors[comp]);
+    }
+    if (isFlat) {
+        for (size_t i = 0; i < 4; ++i) {
+            for (size_t j = 0; j < segmentCount; ++j)
+            (*colorPtrs[i])[j] = gradient.first[i];
+        }
+    } else {
+        /// @todo Gradient color scheme mapping and alculation, frequency/length based coloring.
+        /// @todo Define Gradient
+        /// @todo Map gradient intermediaries to Length / Frequency depending on config.
+    }
+    return colors;
 }
 
 void Subprocess::quit() {
     exit(0);
+}
+
+template <typename T>
+concept Arithmetic = std::is_arithmetic_v<T>;
+template <Arithmetic T>
+T getMax(const std::vector<T>& values) {
+    if (values.empty()) {
+        throw std::invalid_argument("Cannot find max in empty vector.");
+    }
+    T maxVal = values[0];
+    for (const T &v : values) {
+        if (v > maxVal) {
+            maxVal = v;
+        }
+    }
+    return maxVal;
 }

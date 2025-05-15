@@ -55,10 +55,10 @@ std::unordered_map<std::string, std::string> Utilities::getConfig(const fs::path
         throw std::runtime_error("File cannot be opened.");
     }
     YAML::Node configFile = YAML::Load(yamlConfigFile);
-    std::array<std::string, 14> settings = {
+    std::array<std::string, 12> settings = {
         "mode", "sample-size", "scaling", "angle-if-odd", "angle-if-even", 
         "color-scheme", "background-color", "gradient", "color-based-on", "image-size",
-        "line-width", "max-line-width", "line-length", "width-based-on"
+        "line-width", "line-length"
     };
     std::unordered_map<std::string, std::string> config = {};
     for (std::string setting : settings) {
@@ -164,4 +164,15 @@ std::string Utilities::assembleValues(
 
  F32 Utilities::getRadians(F32 degrees) {
     return degrees * (std::numbers::pi / 180);
+ }
+
+ HSV Utilities::getHSV(const RGBA &rgba) {
+    static const size_t channelCount = 4;
+    std::array<float, channelCount> normalizedRGBA = {};
+    for (size_t i = 0; i < channelCount; ++i) {
+        normalizedRGBA[i] = rgba[i] / static_cast<F32>(255);
+    }
+
+    // Get HSV, V is max(RGB), S = max-min / max || 0 if max == 0
+    // H:( max = r -> 60 * (G - B)/delta mod 6, g -> 60 * (B - R/delta) + 2, b -> 60 *  R - G / delta + 4 )/ 360
  }
