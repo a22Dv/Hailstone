@@ -14,6 +14,8 @@
 #include <fstream>
 #include <cstring>
 #include <random>
+#include <cmath>
+#include <numbers>
 
 #ifdef _WIN32
 #include <windows.h>
@@ -45,9 +47,10 @@ public:
     fs::path getExecutablePath();
     Range getRange(const std::string &rangeStr);
     std::string assembleValues(
-        const std::unordered_map<std::string, std::vector<float>> &coordinates,
+        const std::unordered_map<std::string, std::vector<F32>> &coordinates,
         const std::unordered_map<std::string, std::vector<uint8_t>> &style
     );
+    F32 getRadians(F32 degrees);
 };
 
 class IPC {
@@ -77,7 +80,7 @@ public:
     std::vector<uint32_t> getValues(const Range &range);
     std::vector<std::vector<uint64_t>> getSequences(const std::vector<uint32_t> &values);
     std::vector<uint64_t> getSequence(uint32_t n);
-    std::unordered_map<std::string, std::vector<float>> getCoordinates(const std::vector<std::vector<uint64_t>> &sequences);
+    std::unordered_map<std::string, std::vector<F32>> getCoordinates(const std::vector<std::vector<uint64_t>> &sequences);
     std::unordered_map<std::string, std::vector<uint8_t>> getStyles(const std::vector<std::vector<uint64_t>> &sequences);
     void quit();
 };

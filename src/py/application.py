@@ -28,6 +28,7 @@ class Application:
         self.utilities: Utilities = utilities
         self.subprocess: subprocess.Popen = self.utilities.get_subprocess(subproc_path)
         self.ipc: IPC = IPC(self.subprocess, False)
+        self.batch_threshold: int = 10000
 
     def start(self) -> None:
         self.config = self.utilities.set_config(self.config_path)
@@ -35,9 +36,14 @@ class Application:
             range: Tuple[int, int] = self.utilities.get_range()
             if range == (-1, -1):
                 self.quit()
-            image_data: np.ndarray = self.get_image_data(range)
-            image: Image = self.get_image(image_data)
-            self.show_and_save(image)
+
+            effective_range: int = range[1] - range[0]
+
+            # BUG: Doesn't run if range goes below threshold.
+            for _ in range(effective_range // self.batch_threshold):
+                image_data: np.ndarray = self.get_image_data(range)
+                image: Image = self.get_image(image_data)
+                self.show_and_save(image)
 
     # TODO: Add progress display support.
     def get_image_data(self, range: Tuple[int, int]) -> np.ndarray:

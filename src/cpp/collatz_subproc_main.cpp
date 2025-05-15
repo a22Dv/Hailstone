@@ -44,6 +44,10 @@ void Subprocess::start() {
     }
 }
 std::vector<uint32_t> Subprocess::getValues(const Range &range) {
+    if (range.first == range.second) {
+        std::vector<uint32_t> singleValue = {range.first};
+        return singleValue;
+    }
     static const std::string mode = config.at("mode");
     const size_t effectiveRange = static_cast<size_t>(range.second - range.first);
     const uint32_t sampleSize = utilities->getValue(config.at("sample-size"));
@@ -94,26 +98,50 @@ std::unordered_map<std::string, std::vector<float>> Subprocess::getCoordinates(c
     static const uint8_t lineWidth = static_cast<uint8_t>(utilities->getValue(config.at("line-width")));
     static const uint8_t maxLineWidth = static_cast<uint8_t>(utilities->getValue(config.at("max-line-width")));
     static const ImageDimensions imageDimensions = utilities->getDimensions(config.at("image-size"));
-    static float angleIfOdd = utilities->getFloatValue(config.at("angle-if-odd"));
-    static float angleIfEven = utilities->getFloatValue(config.at("angle-if-even"));
     static const std::vector<std::string> parameters = {"x1", "x2", "x3", "x4", "y1", "y2", "y3", "y4"};
     static const size_t parameterCount = parameters.size();
+    static const F32 growth = 1.02;
+    static float angleIfOdd = utilities->getRadians(utilities->getFloatValue(config.at("angle-if-odd")));
+    static float angleIfEven = utilities->getRadians(utilities->getFloatValue(config.at("angle-if-even")));
+    static bool isLogarithmic = scaling == "logarithmic";
+    const size_t sequencesSize = sequences.size();
     std::unordered_map<std::string, std::vector<float>> coordinates = {};
     std::vector<std::vector<float>*> coordinatePtrs(parameterCount);
-    uint8_t currentLineLength = lineLength;
-    if (scaling == "Logarithmic") {
-            
+    F32 currentLineLength = lineLength;
+    uint32_t segmentSum = 0;
+
+    for (const std::vector<uint64_t> &sequence : sequences) {
+        segmentSum += sequence.size() - 1;
     }
     for (size_t i = 0; i < parameterCount; ++i) {
-        coordinates[parameters[i]] = std::vector<float>();
+        coordinates[parameters[i]] = std::vector<float>(segmentSum);
         coordinatePtrs[i] = &coordinates.at(parameters[i]);
     }
-    for (std::vector<uint64_t> sequence : sequences) {
-        size_t sequenceSize = sequence.size();
-        std::vector<uint8_t> segmentLengths = {};
 
-        for (size_t i = sequenceSize - 1; i >= 0; --i) {
-            
+    for (size_t i = 0; i < sequencesSize; ++i) {
+        const std::vector<uint64_t>& sequence = sequences[i];
+        const size_t sequenceSize = sequence.size();
+        const size_t sequenceStartIndex = sequenceSize * i;
+
+        (*coordinatePtrs[0])[sequenceStartIndex] = 0.0;
+        (*coordinatePtrs[4])[sequenceStartIndex] = 0.0;
+
+        for (size_t j = sequenceSize - 1; j > 0; --j) {
+            const size_t vectorIndex = sequenceStartIndex + sequenceSize - 1 - j;
+            const F32 theta = sequence[j] & 0b1 == 0b1 ? angleIfOdd : angleIfEven;
+            (*coordinatePtrs[1])[vectorIndex] = (*coordinatePtrs[0])[vectorIndex] + currentLineLength * std::cosf(theta);
+            (*coordinatePtrs[5])[vectorIndex] = (*coordinatePtrs[4])[vectorIndex] + currentLineLength * std::sinf(theta);
+            (*coordinatePtrs[2])[vectorIndex] = (*coordinatePtrs[1])[vectorIndex] + lineWidth * std::cosf(utilities->getRadians(90) + theta);
+            (*coordinatePtrs[6])[vectorIndex] = (*coordinatePtrs[5])[vectorIndex] + lineWidth * std::sinf(utilities->getRadians(90) + theta);
+            (*coordinatePtrs[3])[vectorIndex] = (*coordinatePtrs[0])[vectorIndex] + lineWidth * std::cosf(utilities->getRadians(90) + theta);
+            (*coordinatePtrs[7])[vectorIndex] = (*coordinatePtrs[4])[vectorIndex] + lineWidth * std::sinf(utilities->getRadians(90) + theta);
+            if (j > 1) {
+                (*coordinatePtrs[0])[vectorIndex + 1] = (*coordinatePtrs[1])[vectorIndex];
+                (*coordinatePtrs[4])[vectorIndex + 1] = (*coordinatePtrs[5])[vectorIndex];
+            }
+            if (isLogarithmic) {
+                currentLineLength *= growth;
+            }   
         }
     }
     return coordinates;

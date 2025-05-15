@@ -127,17 +127,17 @@ Range Utilities::getRange(const std::string &rangeStr) {
 }
 
 std::string Utilities::assembleValues(
-    const std::unordered_map<std::string, std::vector<float>> &coordinates,
+    const std::unordered_map<std::string, std::vector<F32>> &coordinates,
     const std::unordered_map<std::string, std::vector<uint8_t>> &style
  ) {
     static const std::vector<std::string> parameters = {"x1", "x2", "x3", "x4", "y1", "y2", "y3", "y4", "r", "g", "b", "a"};
     static const size_t parameterCount = parameters.size();
-    static const size_t segmentByteCount = (sizeof(float) * 8) + (sizeof(uint8_t) * 4);
+    static const size_t segmentByteCount = (sizeof(F32) * 8) + (sizeof(uint8_t) * 4);
     const size_t segmentCount = style.at("a").size();
     std::string assembledBuffer(segmentByteCount * segmentCount, '\0');
     char* bufferPtr = assembledBuffer.data();
     size_t byteIndex = 0;
-    std::vector<const std::vector<float>*> coordinateVector(8);
+    std::vector<const std::vector<F32>*> coordinateVector(8);
     std::vector<const std::vector<uint8_t>*> styleVector(5);
     for (size_t i = 0; i < 8; ++i) {
         coordinateVector[i] = &coordinates.at(parameters[i]);
@@ -148,7 +148,7 @@ std::string Utilities::assembleValues(
     for (size_t i = 0; i < segmentCount; ++i) {
         for (size_t j = 0; j < parameterCount; ++j) {
             bool isCoordinate = j < 8;
-            const size_t sizeOfParameter = isCoordinate ? sizeof(float) : sizeof(uint8_t);
+            const size_t sizeOfParameter = isCoordinate ? sizeof(F32) : sizeof(uint8_t);
             const char* byte = nullptr;
             if (isCoordinate) {
                 byte = reinterpret_cast<const char*>(&(*coordinateVector[j])[i]);
@@ -160,4 +160,8 @@ std::string Utilities::assembleValues(
         }
     }
     return assembledBuffer;
+ }
+
+ F32 Utilities::getRadians(F32 degrees) {
+    return degrees * (std::numbers::pi / 180);
  }
