@@ -89,7 +89,7 @@ std::vector<uint64_t> Subprocess::getSequence(uint32_t n) {
     return sequence;
 }
 
-std::unordered_map<std::string, std::vector<float>> Subprocess::getCoordinates(const std::vector<std::vector<uint64_t>> &sequences) {
+std::unordered_map<std::string, std::vector<F32>> Subprocess::getCoordinates(const std::vector<std::vector<uint64_t>> &sequences) {
     static const std::string scaling = config.at("scaling");
     static const uint8_t lineLength = static_cast<uint8_t>(utilities->getValue(config.at("line-length")));
     static const uint8_t lineWidth = static_cast<uint8_t>(utilities->getValue(config.at("line-width")));
@@ -101,8 +101,8 @@ std::unordered_map<std::string, std::vector<float>> Subprocess::getCoordinates(c
     static float angleIfEven = utilities->getRadians(utilities->getFloatValue(config.at("angle-if-even")));
     static bool isLogarithmic = scaling == "logarithmic";
     const size_t sequencesSize = sequences.size();
-    std::unordered_map<std::string, std::vector<float>> coordinates = {};
-    std::vector<std::vector<float>*> coordinatePtrs(parameterCount);
+    std::unordered_map<std::string, std::vector<F32>> coordinates = {};
+    std::vector<std::vector<F32>*> coordinatePtrs(parameterCount);
     F32 currentLineLength = lineLength;
     uint32_t segmentSum = 0;
 
@@ -170,6 +170,9 @@ std::unordered_map<std::string, std::vector<uint8_t>> Subprocess::getStyles(cons
         }
     } else {
         /// @todo Gradient color scheme mapping and alculation, frequency/length based coloring.
+        const HSVA startingColor = utilities->getHSVA(gradient.first);
+        const HSVA endColor = utilities->getHSVA(gradient.second);
+        
         /// @todo Define Gradient
         /// @todo Map gradient intermediaries to Length / Frequency depending on config.
     }
@@ -180,18 +183,3 @@ void Subprocess::quit() {
     exit(0);
 }
 
-template <typename T>
-concept Arithmetic = std::is_arithmetic_v<T>;
-template <Arithmetic T>
-T getMax(const std::vector<T>& values) {
-    if (values.empty()) {
-        throw std::invalid_argument("Cannot find max in empty vector.");
-    }
-    T maxVal = values[0];
-    for (const T &v : values) {
-        if (v > maxVal) {
-            maxVal = v;
-        }
-    }
-    return maxVal;
-}

@@ -6,7 +6,8 @@
 *Sending data from one process to another via `subprocess.PIPE` should always end in a newline `\n`, when receiving a message, always consume the newline from the message. This makes the interface for both consistent, despite differences in behavior between C++'s `std::getline` and Python's `subprocess.stdout.readline()`*
 # Data Format
 
-- Background Color (RGBA) (Byte 0->3)
+- Segment Count (Byte 0 -> 3)
+- Background Color (RGBA) (Byte 4 -> 7)
 - Repeating for each line segment:
      - x1 - 4 Bytes (F32)
      - x2 - 4 Bytes (F32)

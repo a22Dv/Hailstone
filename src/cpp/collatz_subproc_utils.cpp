@@ -166,13 +166,48 @@ std::string Utilities::assembleValues(
     return degrees * (std::numbers::pi / 180);
  }
 
- HSV Utilities::getHSV(const RGBA &rgba) {
-    static const size_t channelCount = 4;
-    std::array<float, channelCount> normalizedRGBA = {};
-    for (size_t i = 0; i < channelCount; ++i) {
-        normalizedRGBA[i] = rgba[i] / static_cast<F32>(255);
-    }
 
-    // Get HSV, V is max(RGB), S = max-min / max || 0 if max == 0
-    // H:( max = r -> 60 * (G - B)/delta mod 6, g -> 60 * (B - R/delta) + 2, b -> 60 *  R - G / delta + 4 )/ 360
+ HSVA Utilities::getHSVA(const RGBA &rgba) {
+    static const size_t channelCount = 4;
+    std::vector<F32> normalizedRGB(channelCount - 1);
+    for (size_t i = 0; i < channelCount - 1; ++i) {
+        normalizedRGB[i] = rgba[i] / static_cast<F32>(255);
+    }
+    const F32 maxValue = getMax(normalizedRGB);
+    const F32 minValue = getMin(normalizedRGB);
+    const F32 chroma = maxValue - minValue;
+    F32 hue = 0.0f;
+    if (chroma > 0.0f) {
+        if (maxValue == normalizedRGB[0]) {
+            const F32 hueP = (normalizedRGB[1] - normalizedRGB[2]) / chroma;
+            hue = 60.0f * (hueP + (hueP < 0.0f) ? 6.0f : 0.0f);
+        } else if (maxValue == normalizedRGB[1]) {
+            hue = 60.0f * (((normalizedRGB[2] - normalizedRGB[0]) / chroma) + 2.0f);
+        } else {
+            hue = 60.0f * (((normalizedRGB[0] - normalizedRGB[1]) / chroma) + 4.0f);
+        }   
+        hue /= 360;
+    }
+    F32 saturation = maxValue > 0 ? chroma / maxValue : 0;
+    F32 value = maxValue;
+    HSVA hsva = {hue, saturation, value, rgba[3] / 255.0f};
+    return hsva;
+ }
+
+ F32 Utilities::getHue(const std::unordered_map<std::string, std::vector<F32>> &coordinates, const std::vector<uint32_t> &frequencyMap, bool isFrequencyBased) {
+    return 0.0;
+ }
+ F32 Utilities::getSaturation(const std::unordered_map<std::string, std::vector<F32>> &coordinates, const std::vector<uint32_t> &frequencyMap, bool isFrequencyBased) {
+    return 0.0;
+ }
+ F32 Utilities::getValue(const std::unordered_map<std::string, std::vector<F32>> &coordinates, const std::vector<uint32_t> &frequencyMap, bool isFrequencyBased) {
+    return 0.0;
+ }
+ RGBA Utilities::getRGBA(const HSVA &hsva) {
+    RGBA x = {};
+    return x;
+ }
+ std::vector<uint32_t> Utilities::getFrequencyMap(const std::unordered_map<std::string, std::vector<F32>> &coordinates) {
+    std::vector<uint32_t> x = {};
+    return x;
  }

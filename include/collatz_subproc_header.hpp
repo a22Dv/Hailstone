@@ -31,12 +31,15 @@
 namespace fs = std::filesystem;
 
 using RGBA = std::array<uint8_t, 4>;
-using HSV = std::array<float, 3>;
+using HSVA = std::array<float, 4>;
 using Gradient = std::pair<RGBA, RGBA>;
 using ImageDimensions = std::pair<uint32_t, uint32_t>;
 using Range = std::pair<uint32_t, uint32_t>;
-
 using F32 = float;
+
+template <typename T>
+concept Arithmetic = std::is_arithmetic_v<T>;
+
 
 class Utilities {
 public:
@@ -44,7 +47,7 @@ public:
     static std::vector<std::string> split(const std::string &str, const std::string &delimiter);
     static std::string strip(const std::string &str);
     RGBA getRGBA(const std::string &rgbaHex);
-    HSV getHSV(const RGBA &rgba);
+    HSVA getHSVA(const RGBA &rgba);
     Gradient getGradient(const std::string &gradientHexes);
     uint32_t getValue(const std::string &strValue);
     ImageDimensions getDimensions(const std::string &imageSize);
@@ -57,6 +60,37 @@ public:
         const std::unordered_map<std::string, std::vector<uint8_t>> &style
     );
     F32 getRadians(F32 degrees);
+    F32 getHue(const std::unordered_map<std::string, std::vector<F32>> &coordinates, const std::vector<uint32_t> &frequencyMap, bool isFrequencyBased);
+    F32 getSaturation(const std::unordered_map<std::string, std::vector<F32>> &coordinates, const std::vector<uint32_t> &frequencyMap, bool isFrequencyBased);
+    F32 getValue(const std::unordered_map<std::string, std::vector<F32>> &coordinates, const std::vector<uint32_t> &frequencyMap, bool isFrequencyBased);
+    RGBA getRGBA(const HSVA &hsva);
+    std::vector<uint32_t> getFrequencyMap(const std::unordered_map<std::string, std::vector<F32>> &coordinates);
+    template <Arithmetic T>
+    T getMax(const std::vector<T>& values) {
+        if (values.empty()) {
+            throw std::invalid_argument("Cannot find max in empty vector.");
+        }
+        T maxVal = *values.begin();
+        for (const T &v : values) {
+            if (v > maxVal) {
+                maxVal = v;
+            }
+        }
+        return maxVal;
+    };
+    template <Arithmetic T>
+    T getMin(const std::vector<T>& values) {
+        if (values.empty()) {
+            throw std::invalid_argument("Cannot find min in empty vector.");
+        }
+        T minVal = values[0];
+        for (const T &v : values) {
+            if (v < minVal) {
+                minVal = v;
+            }
+        }
+        return minVal;
+    };
 };
 
 class IPC {
