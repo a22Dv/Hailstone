@@ -31,6 +31,7 @@ class Application:
         self.batch_threshold: int = 10000
 
     def start(self) -> None:
+        "Start of process."
         self.config = self.utilities.set_config(self.config_path)
         while self.running:
             range: Tuple[int, int] = self.utilities.get_range()

@@ -29,7 +29,8 @@ void Subprocess::start() {
         const std::vector<uint32_t> values = getValues(range);
         const std::vector<std::vector<uint64_t>> sequences = getSequences(values);
         const std::unordered_map<std::string, std::vector<float>> coordinates = getCoordinates(sequences);
-        const std::unordered_map<std::string, std::vector<uint8_t>> styles = getStyles(sequences);
+        const std::unordered_map<std::string, uint32_t> frequencyMap = utilities->getFrequencyMap(sequences);
+        const std::unordered_map<std::string, std::vector<uint8_t>> styles = getStyles(sequences, frequencyMap);
         const std::string imageData = utilities->assembleValues(coordinates, styles);
     
         ipc->send(ipc->codes.at("processingFinished"), false);
@@ -144,7 +145,7 @@ std::unordered_map<std::string, std::vector<F32>> Subprocess::getCoordinates(con
     return coordinates;
 }
 
-std::unordered_map<std::string, std::vector<uint8_t>> Subprocess::getStyles(const std::vector<std::vector<uint64_t>> &sequences) {
+std::unordered_map<std::string, std::vector<uint8_t>> Subprocess::getStyles(const std::vector<std::vector<uint64_t>> &sequences, const std::unordered_map<std::string, uint32_t> &frequencyMap) {
     static const std::string colorScheme = config.at("color-scheme");
     static const bool isFlat = colorScheme == "Flat";
     static const RGBA backgroundColor = utilities->getRGBA(config.at("background-color"));
@@ -172,9 +173,21 @@ std::unordered_map<std::string, std::vector<uint8_t>> Subprocess::getStyles(cons
         /// @todo Gradient color scheme mapping and alculation, frequency/length based coloring.
         const HSVA startingColor = utilities->getHSVA(gradient.first);
         const HSVA endColor = utilities->getHSVA(gradient.second);
-        
-        /// @todo Define Gradient
+
         /// @todo Map gradient intermediaries to Length / Frequency depending on config.
+        if (isFrequencyBased) {
+               // Sort each serialized segment in frequency map by frequency.
+               // Create a map that gives you the position or ranking of the serialized segment across all frequencies from most to least frequent.
+               // Call a function where, given the start and ends of the gradient in HSVA, a ranking, and the total number of ranks, gives you a corresponding RGBA value within that ranking.
+               // For each sequence, and for each segment in that sequence:
+               //   Get the corresponding coordinates, get the appropriate segment's value from sequences, serialize the segment's value
+               //   Get the ranking from the map that gives you the position of that segment in frequency, then use that to get the RGB value from the function.
+               //   Get the result to the colors vector.
+        } else {
+            // Get the number of segments in the sequence via sequences
+            // Get the function, use the segment's position in the sequence as the ranking, and the total number of ranks equal to length. 
+            // Get the result to the colors vector.
+        }
     }
     return colors;
 }
