@@ -2,10 +2,9 @@ from display import Display
 from utilities import Utilities
 from ipc import IPC
 from pathlib import Path
-from typing import Dict, Tuple
-import numpy as np
+from typing import Dict, Tuple, Any
+import numpy.typing as npt
 import subprocess
-from PIL import Image, ImageDraw
 
 
 class Application:
@@ -23,10 +22,10 @@ class Application:
         self.images_path: Path = images_path
         self.subproc_path: Path = subproc_path
         self.running: bool = True
-        self.config: Dict = {}
+        self.config: Dict[str, Any] = {}
         self.display: Display = display
         self.utilities: Utilities = utilities
-        self.subprocess: subprocess.Popen = self.utilities.get_subprocess(subproc_path)
+        self.subprocess: subprocess.Popen[bytes] = self.utilities.get_subprocess(subproc_path)
         self.ipc: IPC = IPC(self.subprocess, False)
         self.batch_threshold: int = 10000
 
@@ -41,43 +40,29 @@ class Application:
             effective_range: int = range[1] - range[0]
 
             # BUG: Doesn't run if range goes below threshold.
-            for _ in range(effective_range // self.batch_threshold):
-                image_data: np.ndarray = self.get_image_data(range)
-                image: Image = self.get_image(image_data)
-                self.show_and_save(image)
+            for _ in range(effective_range // self.batch_threshold): # type: ignore
+                image_data: npt.NDArray[Any] = self.get_image_data(range)
+
 
     # TODO: Add progress display support.
-    def get_image_data(self, range: Tuple[int, int]) -> np.ndarray:
+    def get_image_data(self, range: Tuple[int, int]) -> npt.NDArray[Any]:
         self.ipc.send(f"{range[0]} {range[1]}")
         while True:
-            log_data: str = self.ipc.receive(False, True)
+            log_data: bytes | str = self.ipc.receive(False, True)
             if log_data == self.ipc.codes["processing_finished"]:
                 break
         self.ipc.send(self.ipc.codes["send_data"])
-        image_data: bytes = self.ipc.receive(True, False)
-        return self.parse_bytes(image_data)
+        image_data: bytes | str = self.ipc.receive(True, False)
+
+        if type(image_data) == bytes:
+            self.parse_bytes(image_data)
+        else:
+            raise TypeError("Incorrect type. Bytes required.")
 
      # TODO: Add progress display support.
-    def parse_bytes(self, image_data: bytes) -> np.ndarray:
-        data_dtype: np.dtype = np.dtype(
-            [
-                ("x1", np.float32),
-                ("y1", np.float32),
-                ("x2", np.float32),
-                ("y2", np.float32),
-                ("r", np.uint8),
-                ("g", np.uint8),
-                ("b", np.uint8),
-                ("a", np.uint8),
-            ]
-        )
-
-     # TODO: Add progress display support.
-    def get_image(self, image_data: np.ndarray) -> Image:
+    def parse_bytes(self, image_data: bytes) -> npt.NDArray[Any]:
         pass
 
-    def show_and_save(self, image: Image) -> None:
-        pass
 
     def quit(self) -> None:
         self.ipc.send(self.ipc.codes["terminate"])

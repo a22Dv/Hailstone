@@ -1,7 +1,6 @@
 from application import Application
 from display import Display
 from utilities import Utilities
-from ipc import IPC
 from pathlib import Path
 import os
 

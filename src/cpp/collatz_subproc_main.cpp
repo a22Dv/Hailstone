@@ -5,33 +5,31 @@ int main(int argc, char* argv[]) {
     _setmode(_fileno(stderr), _O_BINARY);
     _setmode(_fileno(stdout), _O_BINARY);
     #endif
-    std::unique_ptr<Utilities> utils = std::make_unique<Utilities>();
     std::unique_ptr<IPC> ipc = std::make_unique<IPC>(false);
-    std::unique_ptr<Subprocess> subproc = std::make_unique<Subprocess>(std::move(utils), std::move(ipc));
+    std::unique_ptr<Subprocess> subproc = std::make_unique<Subprocess>(std::move(ipc));
     subproc->start();
     return 0;
 }
 
-Subprocess::Subprocess(std::unique_ptr<Utilities> utilities, std::unique_ptr<IPC> ipc) : 
-    utilities(std::move(utilities)),
+Subprocess::Subprocess(std::unique_ptr<IPC> ipc) : 
     ipc(std::move(ipc)) {};
 
 void Subprocess::start() {
-    fs::path configPath = utilities->getExecutablePath().parent_path() / "config.yaml";
-    config = utilities->getConfig(configPath);
+    fs::path configPath = ConfigUtilities::getExecutablePath().parent_path() / "config.yaml";
+    config = ConfigUtilities::getConfig(configPath);
 
     while (true) {
         const std::string input = ipc->receive();
         if (input == ipc->codes.at("terminate")) {
             quit();
         }
-        const Range range = utilities->getRange(input);
+        const Range range = SubprocessUtilities::getRange(input);
         const std::vector<uint32_t> values = getValues(range);
         const std::vector<std::vector<uint64_t>> sequences = getSequences(values);
         const std::unordered_map<std::string, std::vector<float>> coordinates = getCoordinates(sequences);
-        const std::unordered_map<std::string, uint32_t> frequencyMap = utilities->getFrequencyMap(sequences);
+        const std::unordered_map<std::string, uint32_t> frequencyMap = SubprocessUtilities::getFrequencyMap(sequences);
         const std::unordered_map<std::string, std::vector<uint8_t>> styles = getStyles(sequences, frequencyMap);
-        const std::string imageData = utilities->assembleValues(coordinates, styles);
+        const std::string imageData = SubprocessUtilities::assembleValues(coordinates, styles);
     
         ipc->send(ipc->codes.at("processingFinished"), false);
         const std::string code = ipc->receive();
@@ -49,7 +47,7 @@ std::vector<uint32_t> Subprocess::getValues(const Range &range) {
     }
     static const std::string mode = config.at("mode");
     const size_t effectiveRange = static_cast<size_t>(range.second - range.first);
-    const uint32_t sampleSize = utilities->getValue(config.at("sample-size"));
+    const uint32_t sampleSize = ConfigUtilities::getValue(config.at("sample-size"));
     if (mode == "Continuous" || effectiveRange < sampleSize) {
         std::vector<uint32_t> values(effectiveRange);
         for (size_t i = 0; i < effectiveRange; ++i) {
@@ -92,14 +90,14 @@ std::vector<uint64_t> Subprocess::getSequence(uint32_t n) {
 
 std::unordered_map<std::string, std::vector<F32>> Subprocess::getCoordinates(const std::vector<std::vector<uint64_t>> &sequences) {
     static const std::string scaling = config.at("scaling");
-    static const uint8_t lineLength = static_cast<uint8_t>(utilities->getValue(config.at("line-length")));
-    static const uint8_t lineWidth = static_cast<uint8_t>(utilities->getValue(config.at("line-width")));
-    static const ImageDimensions imageDimensions = utilities->getDimensions(config.at("image-size"));
+    static const uint8_t lineLength = static_cast<uint8_t>(ConfigUtilities::getValue(config.at("line-length")));
+    static const uint8_t lineWidth = static_cast<uint8_t>(ConfigUtilities::getValue(config.at("line-width")));
+    static const ImageDimensions imageDimensions = ConfigUtilities::getDimensions(config.at("image-size"));
     static const std::vector<std::string> parameters = {"x1", "x2", "x3", "x4", "y1", "y2", "y3", "y4"};
     static const size_t parameterCount = parameters.size();
     static const F32 growth = 1.02;
-    static float angleIfOdd = utilities->getRadians(utilities->getFloatValue(config.at("angle-if-odd")));
-    static float angleIfEven = utilities->getRadians(utilities->getFloatValue(config.at("angle-if-even")));
+    static float angleIfOdd = MathUtilities::getRadians(ConfigUtilities::getFloatValue(config.at("angle-if-odd")));
+    static float angleIfEven = MathUtilities::getRadians(ConfigUtilities::getFloatValue(config.at("angle-if-even")));
     static bool isLogarithmic = scaling == "logarithmic";
     const size_t sequencesSize = sequences.size();
     std::unordered_map<std::string, std::vector<F32>> coordinates = {};
@@ -123,15 +121,15 @@ std::unordered_map<std::string, std::vector<F32>> Subprocess::getCoordinates(con
         (*coordinatePtrs[0])[sequenceStartIndex] = 0.0;
         (*coordinatePtrs[4])[sequenceStartIndex] = 0.0;
 
-        for (size_t j = sequenceSize - 1; j > 0; --j) {
-            const size_t vectorIndex = sequenceStartIndex + sequenceSize - 1 - j;
+        for (size_t j = sequenceSize - 1; j > 0; --j) { // Moves backward, Starts at 1 in the sequence, until the sequence ends at N.
+            const size_t vectorIndex = sequenceStartIndex + sequenceSize - 1 - j; // The last segment in the sequence, (1 -> 2) is the first index for the coordinates.
             const F32 theta = sequence[j] & 0b1 == 0b1 ? angleIfOdd : angleIfEven;
             (*coordinatePtrs[1])[vectorIndex] = (*coordinatePtrs[0])[vectorIndex] + currentLineLength * std::cosf(theta);
             (*coordinatePtrs[5])[vectorIndex] = (*coordinatePtrs[4])[vectorIndex] + currentLineLength * std::sinf(theta);
-            (*coordinatePtrs[2])[vectorIndex] = (*coordinatePtrs[1])[vectorIndex] + lineWidth * std::cosf(utilities->getRadians(90) + theta);
-            (*coordinatePtrs[6])[vectorIndex] = (*coordinatePtrs[5])[vectorIndex] + lineWidth * std::sinf(utilities->getRadians(90) + theta);
-            (*coordinatePtrs[3])[vectorIndex] = (*coordinatePtrs[0])[vectorIndex] + lineWidth * std::cosf(utilities->getRadians(90) + theta);
-            (*coordinatePtrs[7])[vectorIndex] = (*coordinatePtrs[4])[vectorIndex] + lineWidth * std::sinf(utilities->getRadians(90) + theta);
+            (*coordinatePtrs[2])[vectorIndex] = (*coordinatePtrs[1])[vectorIndex] + lineWidth * std::cosf(MathUtilities::getRadians(90) + theta);
+            (*coordinatePtrs[6])[vectorIndex] = (*coordinatePtrs[5])[vectorIndex] + lineWidth * std::sinf(MathUtilities::getRadians(90) + theta);
+            (*coordinatePtrs[3])[vectorIndex] = (*coordinatePtrs[0])[vectorIndex] + lineWidth * std::cosf(MathUtilities::getRadians(90) + theta);
+            (*coordinatePtrs[7])[vectorIndex] = (*coordinatePtrs[4])[vectorIndex] + lineWidth * std::sinf(MathUtilities::getRadians(90) + theta);
             if (j > 1) {
                 (*coordinatePtrs[0])[vectorIndex + 1] = (*coordinatePtrs[1])[vectorIndex];
                 (*coordinatePtrs[4])[vectorIndex + 1] = (*coordinatePtrs[5])[vectorIndex];
@@ -145,13 +143,16 @@ std::unordered_map<std::string, std::vector<F32>> Subprocess::getCoordinates(con
     return coordinates;
 }
 
-std::unordered_map<std::string, std::vector<uint8_t>> Subprocess::getStyles(const std::vector<std::vector<uint64_t>> &sequences, const std::unordered_map<std::string, uint32_t> &frequencyMap) {
+std::unordered_map<std::string, std::vector<uint8_t>> Subprocess::getStyles(
+    const std::vector<std::vector<uint64_t>> &sequences, 
+    const std::unordered_map<std::string, uint32_t> &frequencyMap
+) {
     static const std::string colorScheme = config.at("color-scheme");
     static const bool isFlat = colorScheme == "Flat";
-    static const RGBA backgroundColor = utilities->getRGBA(config.at("background-color"));
-    static const Gradient gradient = utilities->getGradient(config.at("gradient"));
+    static const RGBA backgroundColor = ConfigUtilities::getRGBA(config.at("background-color"));
+    static const Gradient gradient = ConfigUtilities::getGradient(config.at("gradient"));
     static const std::string colorBasedOn = config.at("color-based-on");
-    static const bool isFrequencyBased = colorBasedOn == "Frequency-Based";
+    static const bool isFrequencyBased = colorBasedOn == "Frequency-based";
     static const std::vector<std::string> components = {"r", "g", "b", "a"};
     static const size_t componentCount = components.size();
     std::unordered_map<std::string, std::vector<uint8_t>> colors = {};
@@ -166,27 +167,45 @@ std::unordered_map<std::string, std::vector<uint8_t>> Subprocess::getStyles(cons
     }
     if (isFlat) {
         for (size_t i = 0; i < 4; ++i) {
-            for (size_t j = 0; j < segmentCount; ++j)
-            (*colorPtrs[i])[j] = gradient.first[i];
+            for (size_t j = 0; j < segmentCount; ++j) {
+                (*colorPtrs[i])[j] = gradient.first[i];
+            }
         }
     } else {
-        /// @todo Gradient color scheme mapping and alculation, frequency/length based coloring.
-        const HSVA startingColor = utilities->getHSVA(gradient.first);
-        const HSVA endColor = utilities->getHSVA(gradient.second);
-
-        /// @todo Map gradient intermediaries to Length / Frequency depending on config.
+        const HSVA startingColor = ColorUtilities::RGBAToHSVA(gradient.first);
+        const HSVA endingColor = ColorUtilities::RGBAToHSVA(gradient.second);
         if (isFrequencyBased) {
-               // Sort each serialized segment in frequency map by frequency.
-               // Create a map that gives you the position or ranking of the serialized segment across all frequencies from most to least frequent.
-               // Call a function where, given the start and ends of the gradient in HSVA, a ranking, and the total number of ranks, gives you a corresponding RGBA value within that ranking.
-               // For each sequence, and for each segment in that sequence:
-               //   Get the corresponding coordinates, get the appropriate segment's value from sequences, serialize the segment's value
-               //   Get the ranking from the map that gives you the position of that segment in frequency, then use that to get the RGB value from the function.
-               //   Get the result to the colors vector.
-        } else {
-            // Get the number of segments in the sequence via sequences
-            // Get the function, use the segment's position in the sequence as the ranking, and the total number of ranks equal to length. 
-            // Get the result to the colors vector.
+            const std::unordered_map<std::string, uint32_t> rankings = SubprocessUtilities::getSegmentsRankings(frequencyMap, sequences);
+            size_t startingIndex = 0;
+            const uint32_t rankingPositions = rankings.size();
+            for (std::vector<uint64_t> seq : sequences) {
+                const size_t seqSize = seq.size();
+                for (size_t i = 0; i < seqSize - 1; ++i) {
+                    const size_t vectorIndex = startingIndex + i;
+                    const size_t seqIndex = seqSize - i - 2;
+                    const std::string repr = SubprocessUtilities::getStrRepr(seq[seqIndex], seq[seqIndex + 1]);
+                    RGBA color = ColorUtilities::getRGBASegmentValue(startingColor, endingColor, rankings.at(repr), rankingPositions);
+                    (*colorPtrs[0])[vectorIndex] = color[0];
+                    (*colorPtrs[1])[vectorIndex] = color[1];
+                    (*colorPtrs[2])[vectorIndex] = color[2];
+                    (*colorPtrs[3])[vectorIndex] = color[3];
+                }
+                startingIndex += seqSize - 1;
+            }
+        } else { // Length-based
+            size_t startingIndex = 0;
+            for (std::vector seq : sequences) {
+                const size_t seqSize = seq.size();
+                for (size_t i = 0; i < seqSize; ++i) {
+                    const size_t vectorIndex = startingIndex  + i;
+                    RGBA color = ColorUtilities::getRGBASegmentValue(startingColor, endingColor, i, seqSize - 1);
+                    (*colorPtrs[0])[vectorIndex] = color[0];
+                    (*colorPtrs[1])[vectorIndex] = color[1];
+                    (*colorPtrs[2])[vectorIndex] = color[2];
+                    (*colorPtrs[3])[vectorIndex] = color[3];
+                }
+                startingIndex += seqSize;
+            }
         }
     }
     return colors;

@@ -18,7 +18,7 @@
 #include <cmath>
 #include <numbers>
 #include <concepts>
-
+#include <algorithm>
 
 // Windows-specific, for getting the executable location at runtime.
 #ifdef _WIN32
@@ -221,8 +221,12 @@ public:
 
     /// @brief Gets a mapping from a segment to their ranking in the frequency map. Values closer to 0 represents the highest frequency.
     /// @param frequencyMap The frequency map for the mapping to be based on.
+    /// @param sequences The sequences to base the segments on to decode the frequency map.
     /// @return A mapping of the string representation of a segment to their ranking in terms of frequency.
-    static std::unordered_map<std::string, uint32_t> getSegmentsRankings(const std::unordered_map<std::string, uint32_t> &frequencyMap);
+    static std::unordered_map<std::string, uint32_t> getSegmentsRankings(
+        const std::unordered_map<std::string, uint32_t> &frequencyMap, 
+        const std::vector<std::vector<uint64_t>> &sequences
+    );
    
 };
 
