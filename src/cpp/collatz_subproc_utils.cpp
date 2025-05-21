@@ -230,8 +230,10 @@ Range SubprocessUtilities::getRange(const std::string &rangeStr) {
 
 std::string SubprocessUtilities::assembleValues(
     const std::unordered_map<std::string, std::vector<F32>> &coordinates,
-    const std::unordered_map<std::string, std::vector<uint8_t>> &style
+    const std::unordered_map<std::string, std::vector<uint8_t>> &style,
+    const RGBA &backgroundColor
  ) {
+    // Variable declarations.
     static const std::vector<std::string> parameters = {"x1", "x2", "x3", "x4", "y1", "y2", "y3", "y4", "r", "g", "b", "a"};
     static const size_t parameterCount = parameters.size();
     static const size_t segmentByteCount = (sizeof(F32) * 8) + (sizeof(uint8_t) * 4);
@@ -241,12 +243,16 @@ std::string SubprocessUtilities::assembleValues(
     size_t byteIndex = 0;
     std::vector<const std::vector<F32>*> coordinateVector(8);
     std::vector<const std::vector<uint8_t>*> styleVector(5);
+
+    // Vector sizing.
     for (size_t i = 0; i < 8; ++i) {
         coordinateVector[i] = &coordinates.at(parameters[i]);
     }
     for (size_t i = 8; i < 12; ++i) {
         styleVector[i - 8] = &style.at(parameters[i]);
     }
+
+    // Main loop. Copies data to their respective vectors.
     for (size_t i = 0; i < segmentCount; ++i) {
         for (size_t j = 0; j < parameterCount; ++j) {
             bool isCoordinate = j < 8;
@@ -261,7 +267,14 @@ std::string SubprocessUtilities::assembleValues(
             byteIndex += sizeOfParameter;
         }
     }
-    return assembledBuffer;
+
+    // Insert segment count, background color, and data.
+    std::string returnBuffer(assembledBuffer.size() + sizeof(uint32_t) + sizeof(uint8_t) * 4, '\0');
+    uint32_t segmentCountVal = static_cast<uint32_t>(segmentCount);
+    std::memcpy(returnBuffer.data(), &segmentCountVal, sizeof(uint32_t));
+    std::memcpy(returnBuffer.data() + sizeof(uint32_t), &backgroundColor, sizeof(RGBA));
+    std::memcpy(returnBuffer.data() + sizeof(uint32_t) + sizeof(RGBA), assembledBuffer.data(), assembledBuffer.size());
+    return returnBuffer;
  }
 
 std::unordered_map<std::string, uint32_t> SubprocessUtilities::getFrequencyMap(const std::vector<std::vector<uint64_t>> &sequences) {

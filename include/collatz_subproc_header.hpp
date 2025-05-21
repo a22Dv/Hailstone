@@ -19,6 +19,7 @@
 #include <numbers>
 #include <concepts>
 #include <algorithm>
+#include <sstream>
 
 // Windows-specific, for getting the executable location at runtime.
 #ifdef _WIN32
@@ -200,7 +201,8 @@ public:
     /// @return A single string containing the serialized information.
     static std::string assembleValues(
         const std::unordered_map<std::string, std::vector<F32>> &coordinates,
-        const std::unordered_map<std::string, std::vector<uint8_t>> &style
+        const std::unordered_map<std::string, std::vector<uint8_t>> &style,
+        const RGBA &backgroundColor
     );
 
     /// @brief Gets a frequency map with the key being a string representation of the two points making up a segment.
@@ -245,12 +247,14 @@ public:
     /// @brief IPC codes to use to communicate to the Python parent process.
     const std::unordered_map<std::string, std::string> codes = {
         {"send", "\n"},
-        {"processingFinished", "/1"},
-        {"sendData", "/2"},
+        {"test", "/0"},
+        {"testSuc", "/1"},
+        {"procFnsh", "/2"},
+        {"sendData", "/3"},
         {"terminate", "/-1"},
-        {"failureToReceive", "/-2"},
     };
 
+    
     /// @brief Sends a message to the parent process.
     /// @param message A string that holds either raw bytes or a string. The data to be sent.
     /// @param stdOut Determines whether message is sent via stdout or stderr.

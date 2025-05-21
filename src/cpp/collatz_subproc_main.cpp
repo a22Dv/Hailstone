@@ -17,27 +17,66 @@ Subprocess::Subprocess(std::unique_ptr<IPC> ipc) :
 void Subprocess::start() {
     fs::path configPath = ConfigUtilities::getExecutablePath().parent_path() / "config.yaml";
     config = ConfigUtilities::getConfig(configPath);
+    std::stringstream ss;
 
     while (true) {
         const std::string input = ipc->receive();
         if (input == ipc->codes.at("terminate")) {
             quit();
+        } else if (input == ipc->codes.at("test")) {
+            ipc->send(ipc->codes.at("testSuc"), false);
+            continue;
         }
         const Range range = SubprocessUtilities::getRange(input);
+
+        ipc->send("Setting values...\n", false);
         const std::vector<uint32_t> values = getValues(range);
+
+        ss << "Values set.\nNo. of sequences to evaluate: " << values.size() << "\n";
+        ipc->send(ss.str(), false);
+        ss.str("");
+        ipc->send("Evaluating sequences...", false);
         const std::vector<std::vector<uint64_t>> sequences = getSequences(values);
+
+        size_t seg_size = 0;
+        for (std::vector<uint64_t> seq : sequences) {
+            seg_size += seq.size() - 1; 
+        }
+        ss << "Sequences evaluated.\nNo. of coordinates to set: " << seg_size * 8 << "values.\n";
+        ipc->send(ss.str(), false);
+        ss.str("");
+        ipc->send("Evaluating coordinates...", false);
         const std::unordered_map<std::string, std::vector<float>> coordinates = getCoordinates(sequences);
-        const std::unordered_map<std::string, uint32_t> frequencyMap = SubprocessUtilities::getFrequencyMap(sequences);
+        const bool getMap = config.at("color-based-on") == "Frequency-based" && config.at("color-scheme") == "Gradient";
+        
+        if (getMap) { 
+            ipc->send("Getting frequency map...", false); 
+        }
+        const std::unordered_map<std::string, uint32_t> frequencyMap = (
+            getMap ? 
+            SubprocessUtilities::getFrequencyMap(sequences) :
+            std::unordered_map<std::string, uint32_t>()
+        );
+
+        ipc->send("Getting styles...", false);
         const std::unordered_map<std::string, std::vector<uint8_t>> styles = getStyles(sequences, frequencyMap);
-        const std::string imageData = SubprocessUtilities::assembleValues(coordinates, styles);
-    
-        ipc->send(ipc->codes.at("processingFinished"), false);
+
+        ipc->send("Assembling values...", false);
+        const std::string imageData = SubprocessUtilities::assembleValues(
+            coordinates, styles, 
+            ConfigUtilities::getRGBA(config.at("background-color"))
+        );
+
+        ss << ipc->codes.at("procFnsh") << imageData.size();
+        ipc->send(ss.str(), false);
+        ss.str("");
         const std::string code = ipc->receive();
         if (code == ipc->codes.at("sendData")) {
             ipc->send(imageData, true);
         } else {
             ipc->send(ipc->codes.at("failureToReceive"), true);
         }
+        ss.str("");
     }
 }
 std::vector<uint32_t> Subprocess::getValues(const Range &range) {
@@ -95,7 +134,7 @@ std::unordered_map<std::string, std::vector<F32>> Subprocess::getCoordinates(con
     static const ImageDimensions imageDimensions = ConfigUtilities::getDimensions(config.at("image-size"));
     static const std::vector<std::string> parameters = {"x1", "x2", "x3", "x4", "y1", "y2", "y3", "y4"};
     static const size_t parameterCount = parameters.size();
-    static const F32 growth = 1.02;
+    static const F32 decay = 0.99;
     static float angleIfOdd = MathUtilities::getRadians(ConfigUtilities::getFloatValue(config.at("angle-if-odd")));
     static float angleIfEven = MathUtilities::getRadians(ConfigUtilities::getFloatValue(config.at("angle-if-even")));
     static bool isLogarithmic = scaling == "logarithmic";
@@ -135,7 +174,7 @@ std::unordered_map<std::string, std::vector<F32>> Subprocess::getCoordinates(con
                 (*coordinatePtrs[4])[vectorIndex + 1] = (*coordinatePtrs[5])[vectorIndex];
             }
             if (isLogarithmic) {
-                currentLineLength *= growth;
+                currentLineLength *= decay;
             }   
         }
         sequenceStartIndex += sequenceSize - 1;
