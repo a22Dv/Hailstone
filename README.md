@@ -24,7 +24,7 @@ After running `python collatz_main.py`, you'll be greeted with:
 Enter Range [2 -> N]: 
 ```
 Just enter any range, above 2 and up to any N.
->[WARNING]
+>[!WARNING]
 > N is largely limited by the capacity of a `uint64`. So the program will crash with high enough N if it overflows. I haven't checked what numbers trigger this, but this is unlikely to happen for the first 10s of millions.
 
 Wait until the program finishes until it displays an output image, which you can then choose to save or not. Saving it will save the final image in an `images/` directory in the same path you ran the script.
@@ -34,7 +34,7 @@ Wait until the program finishes until it displays an output image, which you can
 
 ### Disclaimer
 
->[CAUTION]
+>[!CAUTION]
 > This program will FILL your RAM with a big enough range. It is NOT recommended to go beyond an effective range of 100,000 as batching is still not implemented, but will be in the near future. Going into the millions WILL cause an `out of memory` error, or in the worst-case scenario outright crash your device.
 
 ## License
