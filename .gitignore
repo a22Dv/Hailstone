@@ -6,3 +6,4 @@ build/
 docs/
 Doxyfile
 autodocs.py
+src/py/images/

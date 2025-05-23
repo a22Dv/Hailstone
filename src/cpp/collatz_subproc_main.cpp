@@ -42,7 +42,7 @@ void Subprocess::start() {
         for (std::vector<uint64_t> seq : sequences) {
             seg_size += seq.size() - 1; 
         }
-        ss << "Sequences evaluated.\nNo. of coordinates to set: " << seg_size * 8 << "values.\n";
+        ss << "Sequences evaluated.\nNo. of coordinates to set: " << seg_size * 8 << " values.\n";
         ipc->send(ss.str(), false);
         ss.str("");
         ipc->send("Evaluating coordinates...", false);
@@ -131,17 +131,15 @@ std::unordered_map<std::string, std::vector<F32>> Subprocess::getCoordinates(con
     static const std::string scaling = config.at("scaling");
     static const uint8_t lineLength = static_cast<uint8_t>(ConfigUtilities::getValue(config.at("line-length")));
     static const uint8_t lineWidth = static_cast<uint8_t>(ConfigUtilities::getValue(config.at("line-width")));
-    static const ImageDimensions imageDimensions = ConfigUtilities::getDimensions(config.at("image-size"));
     static const std::vector<std::string> parameters = {"x1", "x2", "x3", "x4", "y1", "y2", "y3", "y4"};
     static const size_t parameterCount = parameters.size();
     static const F32 decay = 0.99;
     static float angleIfOdd = MathUtilities::getRadians(ConfigUtilities::getFloatValue(config.at("angle-if-odd")));
     static float angleIfEven = MathUtilities::getRadians(ConfigUtilities::getFloatValue(config.at("angle-if-even")));
-    static bool isLogarithmic = scaling == "logarithmic";
+    static bool isLogarithmic = scaling == "Logarithmic";
     const size_t sequencesSize = sequences.size();
     std::unordered_map<std::string, std::vector<F32>> coordinates = {};
     std::vector<std::vector<F32>*> coordinatePtrs(parameterCount);
-    F32 currentLineLength = lineLength;
     uint32_t segmentSum = 0;
 
     for (const std::vector<uint64_t> &sequence : sequences) {
@@ -154,15 +152,17 @@ std::unordered_map<std::string, std::vector<F32>> Subprocess::getCoordinates(con
 
     size_t sequenceStartIndex = 0;
     for (size_t i = 0; i < sequencesSize; ++i) {
+        F32 currentLineLength = lineLength;
         const std::vector<uint64_t>& sequence = sequences[i];
         const size_t sequenceSize = sequence.size();
-
+        const F32 initialTheta = MathUtilities::getRadians(90.0);
+        F32 currentTheta = initialTheta;
         (*coordinatePtrs[0])[sequenceStartIndex] = 0.0;
         (*coordinatePtrs[4])[sequenceStartIndex] = 0.0;
 
         for (size_t j = sequenceSize - 1; j > 0; --j) { // Moves backward, Starts at 1 in the sequence, until the sequence ends at N.
             const size_t vectorIndex = sequenceStartIndex + sequenceSize - 1 - j; // The last segment in the sequence, (1 -> 2) is the first index for the coordinates.
-            const F32 theta = sequence[j] & 0b1 == 0b1 ? angleIfOdd : angleIfEven;
+            const F32 theta = (sequence[j] & 0b1 == 0b1 ? angleIfOdd : angleIfEven) + currentTheta;
             (*coordinatePtrs[1])[vectorIndex] = (*coordinatePtrs[0])[vectorIndex] + currentLineLength * std::cosf(theta);
             (*coordinatePtrs[5])[vectorIndex] = (*coordinatePtrs[4])[vectorIndex] + currentLineLength * std::sinf(theta);
             (*coordinatePtrs[2])[vectorIndex] = (*coordinatePtrs[1])[vectorIndex] + lineWidth * std::cosf(MathUtilities::getRadians(90) + theta);
@@ -176,6 +176,7 @@ std::unordered_map<std::string, std::vector<F32>> Subprocess::getCoordinates(con
             if (isLogarithmic) {
                 currentLineLength *= decay;
             }   
+            currentTheta = theta;
         }
         sequenceStartIndex += sequenceSize - 1;
     }

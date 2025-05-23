@@ -8,6 +8,7 @@ import numpy.typing as npt
 from PIL import Image
 from time import sleep
 import moderngl as gl
+import os
 
 
 class Application:
@@ -56,6 +57,8 @@ class Application:
             subproc_data_bytes: bytes = IPC.receive(self.subproc, True, bytes_to_read)
             image_data: ImageData = self.get_data(subproc_data_bytes)
             image: Image.Image = self.render_image(image_data)
+            self.save_image(image)
+
 
     def get_data(self, image_bytes: bytes) -> ImageData:
         """Transfers the data from the IPC to a format readable by python via NumPy."""
@@ -87,7 +90,7 @@ class Application:
         return ImageData(segment_count, background_color, image_data_np)
 
     def render_image(self, image_data: ImageData) -> Image.Image:
-        """Renders an image, then shows the output to the user to determine if it should be saved."""
+        """Renders an image, then returns the final image as an Image object."""
 
         # Transform data into vertex pair + broadcasted rgba (x,y,r,g,b,a)
         QUAD_VERTEX_COUNT: int = 4
@@ -101,41 +104,155 @@ class Application:
                 ("a", np.uint8),
             ]
         )
-        vbo_dtype: np.dtype[Any] = np.dtype((vertex_dtype, (QUAD_VERTEX_COUNT,)))
-        vbo_data: npt.NDArray[Any] = np.zeros(image_data.image_bytes.shape, dtype=vbo_dtype)
+        vbo_data: npt.NDArray[Any] = np.zeros(
+            image_data.image_bytes.shape[0] * QUAD_VERTEX_COUNT, dtype=vertex_dtype
+        )
         for i in range(QUAD_VERTEX_COUNT):
-            vbo_data[i]["x"] = image_data.image_bytes[f"x{i + 1}"]
-            vbo_data[i]["y"] = image_data.image_bytes[f"y{i + 1}"]
-            vbo_data[i]["r"] = image_data.image_bytes["r"]
-            vbo_data[i]["g"] = image_data.image_bytes["g"]
-            vbo_data[i]["b"] = image_data.image_bytes["b"]
-            vbo_data[i]["a"] = image_data.image_bytes["a"]
+            indices: npt.NDArray[Any] = np.arange(
+                i, vbo_data.shape[0], QUAD_VERTEX_COUNT
+            )
+            vbo_data["x"][indices] = image_data.image_bytes[f"x{i + 1}"]
+            vbo_data["y"][indices] = image_data.image_bytes[f"y{i + 1}"]
+            vbo_data["r"][indices] = image_data.image_bytes["r"]
+            vbo_data["g"][indices] = image_data.image_bytes["g"]
+            vbo_data["b"][indices] = image_data.image_bytes["b"]
+            vbo_data["a"][indices] = image_data.image_bytes["a"]
 
+        # Transform to NDC (Normalized Device Coordinates).
+        # Get min, max, center x and y for scaling purposes.
+        min_x: np.float32 = np.min(vbo_data["x"])
+        min_y: np.float32 = np.min(vbo_data["y"])
+        max_x: np.float32 = np.max(vbo_data["x"])
+        max_y: np.float32 = np.max(vbo_data["y"])
+        center_x: np.float32 = (min_x + max_x) / 2
+        center_y: np.float32 = (min_y + max_y) / 2
+        width: np.float32 = max_x - min_x
+        height: np.float32 = max_y - min_y
+        longest_side_length: np.float32 = width if height < width else height
 
-        
-        # Data will be [[each x,y pair with their rgba]...number of vertex points]
-        # Get min and max x and y for scaling purposes.
+        # To NDC.
+        vbo_data["x"] = (vbo_data["x"] - center_x) * 2 / longest_side_length
+        vbo_data["y"] = (vbo_data["y"] - center_y) * 2 / longest_side_length
+
+        ibo_data: npt.NDArray[np.uint32] = np.zeros(
+            (vbo_data.shape[0] // QUAD_VERTEX_COUNT) * 6, dtype=np.uint32
+        )
+
+        # Create IBO
+        ibo_pattern: npt.NDArray[np.uint32] = np.array(
+            [0, 1, 2, 0, 2, 3], dtype=np.uint32
+        )
+        ibo_base_index: npt.NDArray[np.uint32] = (
+            np.arange(vbo_data.shape[0] // QUAD_VERTEX_COUNT, dtype=np.uint32)
+            * QUAD_VERTEX_COUNT
+        )
+        ibo_repeated_index: npt.NDArray[np.uint32] = np.repeat(ibo_base_index, 6)
+        ibo_tiled: npt.NDArray[np.uint32] = np.tile(
+            ibo_pattern, vbo_data.shape[0] // QUAD_VERTEX_COUNT
+        )
+        ibo_data = ibo_repeated_index + ibo_tiled
 
         # Create standalone context.
+        ctx: gl.Context = gl.create_standalone_context()
 
         # Get a vertex shader and frag_shader source
         # Pass these to prog to compile.
-        # Set u_resolution to actual resolution on prog.
+        prog: gl.Program = ctx.program(
+            "\n".join(
+                (
+                    "#version 330 core",
+                    "in vec2 in_pos;",
+                    "in vec4 in_clr;",
+                    "out vec4 vclr;",
+                    "void main() {",
+                    "   gl_Position = vec4(in_pos, 0.0, 1.0);",
+                    "   vclr = in_clr;",
+                    "}",
+                )
+            ),
+            "\n".join(
+                (
+                    "#version 330 core",
+                    "in vec4 vclr;",
+                    "out vec4 fclr;",
+                    "void main() {",
+                    "   fclr = vclr;",
+                    "}",
+                )
+            ),
+        )
 
-        # Setup VBO to pass data to GPU.
-        # Setup VAO to describe VBO contents.
+        PADDING_SIZE: int = 200  # Divided between both sides.
 
-        # Setup FBO for off-screen rendering.
-        # Texture, and set drawing target.
+        # FBO resolution
+        resolution: Tuple[int, ...] = tuple(
+            [
+                int(v.strip()) - PADDING_SIZE
+                for v in self.config["image-size"].split("x")
+            ]
+        )
 
-        # Set viewport to cover entire FBO.
-        # Set background color with clear.
+        vbo: gl.Buffer = ctx.buffer(data=vbo_data.tobytes())
+        ibo: gl.Buffer = ctx.buffer(data=ibo_data.tobytes())
+        vao: gl.VertexArray = ctx.vertex_array(prog, [(vbo, "2f 4f1", "in_pos", "in_clr")], index_buffer=ibo, index_element_size=4)  # type: ignore
+        clr_attachment: gl.Texture = ctx.texture(
+            (resolution[0], resolution[1]), components=4
+        )
+        fbo: gl.Framebuffer = ctx.framebuffer(color_attachments=[clr_attachment])
+        fbo.use()
 
-        # Render VAO with TRIANGLE_STRIP.
+        # (x,y [center]), width, height.
+        ctx.viewport = (0, 0, resolution[0], resolution[1])
+        ctx.clear(
+            image_data.background_color[0] / 255.0,
+            image_data.background_color[1] / 255.0,
+            image_data.background_color[2] / 255.0,
+            image_data.background_color[3] / 255.0,
+        )
 
-        # Post-processing, add padding then return as Image object.
+        # Render.
+        vao.render(mode=gl.TRIANGLES)
+        raw: bytes = clr_attachment.read(alignment=1)
+        rendered_image: Image.Image = Image.frombytes(
+            "RGBA", (resolution[0], resolution[1]), raw
+        )
 
-        return Image.Image()
+        # Post processing.
+        padded_image: Image.Image = Image.new(
+            "RGBA",
+            (resolution[0] + PADDING_SIZE, resolution[1] + PADDING_SIZE),
+            tuple(image_data.background_color),
+        )
+        padded_image.paste(rendered_image, (PADDING_SIZE // 2, PADDING_SIZE // 2))
+
+        # Transpose as ModernGL has Y-axis (+ upwards), with Pillow being (+ downwards)
+        padded_image = padded_image.transpose(Image.Transpose.FLIP_TOP_BOTTOM)
+
+        # Release resources.
+        vao.release()
+        vbo.release()
+        ibo.release()
+        prog.release()
+        clr_attachment.release()
+        fbo.release()
+        ctx.release()
+
+        return padded_image
+
+    def save_image(self, image: Image.Image) -> None:
+        image.show()
+        if not (Path(__file__).parent / "images").exists():
+            os.mkdir(Path(__file__).parent / "images")
+            
+        if input("Save image? (Y/n): ").lower() == "y":
+            image.save(
+                Path(__file__).parent
+                / "images"
+                / f"{self.config["angle-if-odd"]}ODD{self.config["angle-if-even"]}EVEN_{len(os.listdir(Path(__file__).parent / "images"))}.png"
+            )
+
+        else:
+            pass
 
     def quit(self) -> None:
         """Gracefully terminates the process."""
