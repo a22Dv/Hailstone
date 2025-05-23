@@ -133,9 +133,10 @@ class Application:
         # To NDC.
         vbo_data["x"] = (vbo_data["x"] - center_x) * 2 / longest_side_length
         vbo_data["y"] = (vbo_data["y"] - center_y) * 2 / longest_side_length
+        QUAD_COUNT: int = vbo_data.shape[0] // QUAD_VERTEX_COUNT
 
         ibo_data: npt.NDArray[np.uint32] = np.zeros(
-            (vbo_data.shape[0] // QUAD_VERTEX_COUNT) * 6, dtype=np.uint32
+            (QUAD_COUNT) * 6, dtype=np.uint32
         )
 
         # Create IBO
@@ -143,12 +144,12 @@ class Application:
             [0, 1, 2, 0, 2, 3], dtype=np.uint32
         )
         ibo_base_index: npt.NDArray[np.uint32] = (
-            np.arange(vbo_data.shape[0] // QUAD_VERTEX_COUNT, dtype=np.uint32)
+            np.arange(QUAD_COUNT, dtype=np.uint32)
             * QUAD_VERTEX_COUNT
         )
         ibo_repeated_index: npt.NDArray[np.uint32] = np.repeat(ibo_base_index, 6)
         ibo_tiled: npt.NDArray[np.uint32] = np.tile(
-            ibo_pattern, vbo_data.shape[0] // QUAD_VERTEX_COUNT
+            ibo_pattern, QUAD_COUNT
         )
         ibo_data = ibo_repeated_index + ibo_tiled
 
@@ -243,7 +244,7 @@ class Application:
         image.show()
         if not (Path(__file__).parent / "images").exists():
             os.mkdir(Path(__file__).parent / "images")
-            
+
         if input("Save image? (Y/n): ").lower() == "y":
             image.save(
                 Path(__file__).parent
