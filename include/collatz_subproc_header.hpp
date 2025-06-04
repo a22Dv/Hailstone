@@ -168,11 +168,6 @@ public:
     /// @return The `F32` representation of the value in the string.
     static F32 getFloatValue(const std::string &strFloat);  
     
-    /// @brief Gets a `Gradient` object from the string containing the gradient hexes from the configuration file.
-    /// @param gradientHexes A string containing two Hexes that hold the color for both ends of the gradient.
-    /// @return A `Gradient` holding the gradient values.
-    static Gradient getGradient(const std::string &gradientHexes);
-    
     /// @brief Gets the RGBA value from a string holding its hex representation.
     /// @param rgbaHex A string containing the hex representation of an RGBA value.
     /// @return An `RGBA` color value.
@@ -205,11 +200,6 @@ public:
         const RGBA &backgroundColor
     );
 
-    /// @brief Gets a frequency map with the key being a string representation of the two points making up a segment.
-    /// @param sequences The sequences to be evaluated.
-    /// @return A frequency map holding the frequency of each segment across all sequences.
-    static std::unordered_map<std::string, uint32_t> getFrequencyMap(const std::vector<std::vector<uint64_t>> &sequences);
-
     /// @brief A serialized string representation of two values.
     /// @param a Starting value.
     /// @param b Ending value.
@@ -220,16 +210,6 @@ public:
     /// @param repr A serialized string.
     /// @return The values within the serialized string.
     static std::array<uint64_t, 2> getIntsFromRepr(const std::string &repr);
-
-    /// @brief Gets a mapping from a segment to their ranking in the frequency map. Values closer to 0 represents the highest frequency.
-    /// @param frequencyMap The frequency map for the mapping to be based on.
-    /// @param sequences The sequences to base the segments on to decode the frequency map.
-    /// @return A mapping of the string representation of a segment to their ranking in terms of frequency.
-    static std::unordered_map<std::string, uint32_t> getSegmentsRankings(
-        const std::unordered_map<std::string, uint32_t> &frequencyMap, 
-        const std::vector<std::vector<uint64_t>> &sequences
-    );
-   
 };
 
 /// @brief Class that holds methods for IPC between the main Python process and this C++ subprocess.
@@ -304,9 +284,8 @@ public:
 
     /// @brief Returns the `RGBA` color values for each segment depending on the configuration.
     /// @param sequences The hailstone sequences whose colors are to be evaluated.
-    /// @param frequencyMap A map containing the frequencies of each unique segment.
     /// @return A map containing each channel as a string with the ith index of the vector being the ith segment's channel value for that color.
-    std::unordered_map<std::string, std::vector<uint8_t>> getStyles(const std::vector<std::vector<uint64_t>> &sequences, const std::unordered_map<std::string, uint32_t> &frequencyMap);
+    std::unordered_map<std::string, std::vector<uint8_t>> getStyles(const std::vector<std::vector<uint64_t>> &sequences);
 
     /// @brief Exits the process and terminates it gracefully.
     void quit();

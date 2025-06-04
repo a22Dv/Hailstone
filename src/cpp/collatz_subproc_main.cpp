@@ -47,19 +47,10 @@ void Subprocess::start() {
         ss.str("");
         ipc->send("Evaluating coordinates...", false);
         const std::unordered_map<std::string, std::vector<float>> coordinates = getCoordinates(sequences);
-        const bool getMap = config.at("color-based-on") == "Frequency-based" && config.at("color-scheme") == "Gradient";
         
-        if (getMap) { 
-            ipc->send("Getting frequency map...", false); 
-        }
-        const std::unordered_map<std::string, uint32_t> frequencyMap = (
-            getMap ? 
-            SubprocessUtilities::getFrequencyMap(sequences) :
-            std::unordered_map<std::string, uint32_t>()
-        );
 
         ipc->send("Getting styles...", false);
-        const std::unordered_map<std::string, std::vector<uint8_t>> styles = getStyles(sequences, frequencyMap);
+        const std::unordered_map<std::string, std::vector<uint8_t>> styles = getStyles(sequences);
 
         ipc->send("Assembling values...", false);
         const std::string imageData = SubprocessUtilities::assembleValues(
@@ -184,15 +175,10 @@ std::unordered_map<std::string, std::vector<F32>> Subprocess::getCoordinates(con
 }
 
 std::unordered_map<std::string, std::vector<uint8_t>> Subprocess::getStyles(
-    const std::vector<std::vector<uint64_t>> &sequences, 
-    const std::unordered_map<std::string, uint32_t> &frequencyMap
+    const std::vector<std::vector<uint64_t>> &sequences
 ) {
-    static const std::string colorScheme = config.at("color-scheme");
-    static const bool isFlat = colorScheme == "Flat";
     static const RGBA backgroundColor = ConfigUtilities::getRGBA(config.at("background-color"));
-    static const Gradient gradient = ConfigUtilities::getGradient(config.at("gradient"));
-    static const std::string colorBasedOn = config.at("color-based-on");
-    static const bool isFrequencyBased = colorBasedOn == "Frequency-based";
+    static const RGBA color = ConfigUtilities::getRGBA(config.at("color"));
     static const std::vector<std::string> components = {"r", "g", "b", "a"};
     static const size_t componentCount = components.size();
     std::unordered_map<std::string, std::vector<uint8_t>> colors = {};
@@ -205,47 +191,9 @@ std::unordered_map<std::string, std::vector<uint8_t>> Subprocess::getStyles(
         colors[comp] = std::vector<uint8_t>(segmentCount);
         colorPtrs.push_back(&colors[comp]);
     }
-    if (isFlat) {
-        for (size_t i = 0; i < 4; ++i) {
-            for (size_t j = 0; j < segmentCount; ++j) {
-                (*colorPtrs[i])[j] = gradient.first[i];
-            }
-        }
-    } else {
-        const HSVA startingColor = ColorUtilities::RGBAToHSVA(gradient.first);
-        const HSVA endingColor = ColorUtilities::RGBAToHSVA(gradient.second);
-        if (isFrequencyBased) {
-            const std::unordered_map<std::string, uint32_t> rankings = SubprocessUtilities::getSegmentsRankings(frequencyMap, sequences);
-            size_t startingIndex = 0;
-            const uint32_t rankingPositions = rankings.size();
-            for (std::vector<uint64_t> seq : sequences) {
-                const size_t seqSize = seq.size();
-                for (size_t i = 0; i < seqSize - 1; ++i) {
-                    const size_t vectorIndex = startingIndex + i;
-                    const size_t seqIndex = seqSize - i - 2;
-                    const std::string repr = SubprocessUtilities::getStrRepr(seq[seqIndex], seq[seqIndex + 1]);
-                    RGBA color = ColorUtilities::getRGBASegmentValue(startingColor, endingColor, rankings.at(repr), rankingPositions);
-                    (*colorPtrs[0])[vectorIndex] = color[0];
-                    (*colorPtrs[1])[vectorIndex] = color[1];
-                    (*colorPtrs[2])[vectorIndex] = color[2];
-                    (*colorPtrs[3])[vectorIndex] = color[3];
-                }
-                startingIndex += seqSize - 1;
-            }
-        } else { // Length-based
-            size_t startingIndex = 0;
-            for (std::vector seq : sequences) {
-                const size_t seqSize = seq.size();
-                for (size_t i = 0; i < seqSize; ++i) {
-                    const size_t vectorIndex = startingIndex  + i;
-                    RGBA color = ColorUtilities::getRGBASegmentValue(startingColor, endingColor, i, seqSize - 1);
-                    (*colorPtrs[0])[vectorIndex] = color[0];
-                    (*colorPtrs[1])[vectorIndex] = color[1];
-                    (*colorPtrs[2])[vectorIndex] = color[2];
-                    (*colorPtrs[3])[vectorIndex] = color[3];
-                }
-                startingIndex += seqSize;
-            }
+    for (size_t i = 0; i < 4; ++i) {
+        for (size_t j = 0; j < segmentCount; ++j) {
+            (*colorPtrs[i])[j] = color[i];
         }
     }
     return colors;
