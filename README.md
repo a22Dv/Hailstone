@@ -13,7 +13,7 @@ Download and extract one of the releases under [Releases](https://github.com/a22
 
 After doing so, open the terminal in the path you extracted the `.zip ` file and run:
 ```
-python -m venv venv; venv/scripts/activate; pip install requirements.txt; python collatz_main.py 
+python -m venv venv; venv/scripts/activate; pip install -r requirements.txt; python collatz_main.py 
 ```
 This creates a virtual environment in the path set, activates it, then installs the requirements there, and finally runs the script.
 
