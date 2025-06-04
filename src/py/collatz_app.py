@@ -35,30 +35,27 @@ class Application:
         ):
             raise ChildProcessError(f"Subprocess did not respond.")
 
-        # Main loop.
+        range: Tuple[int, int] = Utilities.getRange()
+        if range == (-1, -1):
+            self.quit()
+        IPC.send(f"{range[0]} {range[1]}", self.subproc)
+        bytes_to_read: int = 0
         while True:
-            range: Tuple[int, int] = Utilities.getRange()
-            if range == (-1, -1):
-                self.quit()
-            IPC.send(f"{range[0]} {range[1]}", self.subproc)
-            bytes_to_read: int = 0
-            while True:
-                subproc_log_bytes: bytes = IPC.receive(self.subproc, False)
-                log_ascii_repr: str = subproc_log_bytes.decode("ascii")
-                if IPC.IPC_CODES["proc_fnsh"] not in log_ascii_repr:
-                    print(log_ascii_repr)
-                    continue
-                elif IPC.IPC_CODES["proc_fnsh"] in log_ascii_repr:
-                    bytes_to_read = int(
-                        log_ascii_repr.removeprefix(IPC.IPC_CODES["proc_fnsh"])
-                    )
-                IPC.send(IPC.IPC_CODES["send_data"], self.subproc)
-                break
-            subproc_data_bytes: bytes = IPC.receive(self.subproc, True, bytes_to_read)
-            image_data: ImageData = self.get_data(subproc_data_bytes)
-            image: Image.Image = self.render_image(image_data)
-            self.save_image(image)
-
+            subproc_log_bytes: bytes = IPC.receive(self.subproc, False)
+            log_ascii_repr: str = subproc_log_bytes.decode("ascii")
+            if IPC.IPC_CODES["proc_fnsh"] not in log_ascii_repr:
+                print(log_ascii_repr)
+                continue
+            elif IPC.IPC_CODES["proc_fnsh"] in log_ascii_repr:
+                bytes_to_read = int(
+                    log_ascii_repr.removeprefix(IPC.IPC_CODES["proc_fnsh"])
+                )
+            IPC.send(IPC.IPC_CODES["send_data"], self.subproc)
+            break
+        subproc_data_bytes: bytes = IPC.receive(self.subproc, True, bytes_to_read)
+        image_data: ImageData = self.get_data(subproc_data_bytes)
+        image: Image.Image = self.render_image(image_data)
+        self.save_image(image)
 
     def get_data(self, image_bytes: bytes) -> ImageData:
         """Transfers the data from the IPC to a format readable by python via NumPy."""
@@ -135,22 +132,17 @@ class Application:
         vbo_data["y"] = (vbo_data["y"] - center_y) * 2 / longest_side_length
         QUAD_COUNT: int = vbo_data.shape[0] // QUAD_VERTEX_COUNT
 
-        ibo_data: npt.NDArray[np.uint32] = np.zeros(
-            (QUAD_COUNT) * 6, dtype=np.uint32
-        )
+        ibo_data: npt.NDArray[np.uint32] = np.zeros((QUAD_COUNT) * 6, dtype=np.uint32)
 
         # Create IBO
         ibo_pattern: npt.NDArray[np.uint32] = np.array(
             [0, 1, 2, 0, 2, 3], dtype=np.uint32
         )
         ibo_base_index: npt.NDArray[np.uint32] = (
-            np.arange(QUAD_COUNT, dtype=np.uint32)
-            * QUAD_VERTEX_COUNT
+            np.arange(QUAD_COUNT, dtype=np.uint32) * QUAD_VERTEX_COUNT
         )
         ibo_repeated_index: npt.NDArray[np.uint32] = np.repeat(ibo_base_index, 6)
-        ibo_tiled: npt.NDArray[np.uint32] = np.tile(
-            ibo_pattern, QUAD_COUNT
-        )
+        ibo_tiled: npt.NDArray[np.uint32] = np.tile(ibo_pattern, QUAD_COUNT)
         ibo_data = ibo_repeated_index + ibo_tiled
 
         # Create standalone context.

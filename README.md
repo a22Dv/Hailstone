@@ -29,13 +29,15 @@ Just enter any range, above 2 and up to any N.
 
 Wait until the program finishes until it displays an output image, which you can then choose to save or not. Saving it will save the final image in an `images/` directory in the same path you ran the script.
 
+You can edit the parameters in the accompanied `config.yaml` file. Details about each parameter are commented out above the options in the file.
+
 ### Sample Output
 ![Sample Image](./public/tmpvd2i2722.PNG)
 
 ### Disclaimer
 
 >[!CAUTION]
-> This program will FILL your RAM with a big enough range. It is NOT recommended to go beyond an effective range of 100,000 as batching is still not implemented, but will be in the near future. Going into the millions WILL cause an `out of memory` error, or in the worst-case scenario outright crash your device.
+> This program is RAM-intensive. It is NOT recommended to go beyond a range of 1,000,000 as going into the millions WILL cause an `out of memory` error, or in the worst-case scenario outright crash your device. Of course, the exact limit will depend on your system specifications.
 
 ## License
 
